@@ -1,0 +1,16 @@
+# Deploy this web service using a durable external PostgreSQL database.
+# DATABASE_URL is a secret configured in the Render dashboard during Blueprint creation.
+# A free Render Postgres database expires after 30 days: do not use it for real user data.
+services:
+  - type: web
+    name: recallcode
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
