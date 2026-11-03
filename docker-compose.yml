@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: recallcode
+      POSTGRES_USER: recallcode
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U recallcode"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://recallcode:${POSTGRES_PASSWORD}@postgres:5432/recallcode
+      APP_ENV: production
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8000}
+      LIST_RESOLVER_URL: ${LIST_RESOLVER_URL:-}
+      LIST_RESOLVER_TOKEN: ${LIST_RESOLVER_TOKEN:-}
+    ports:
+      - "127.0.0.1:8000:8000"
+volumes:
+  db_data:
