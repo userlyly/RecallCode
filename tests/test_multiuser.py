@@ -74,4 +74,7 @@ if __name__=='__main__':
         test_paste_parser_and_prohibited_url_host()
         print('PASS: real multi-user isolation, authenticated review, CSRF, saved progress, URL validation')
     finally:
+        # Windows cannot unlink SQLite files while pooled connections stay open.
+        from app.main import engine
+        engine.dispose()
         DB.unlink(missing_ok=True)

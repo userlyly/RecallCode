@@ -1,0 +1,20 @@
+{
+  "browser": "156.0.8078.4",
+  "checks": [
+    "Three-step onboarding; exact Hot100 and interview150 list counts in real extension",
+    "Actual official URL import produced validated 100-question preview",
+    "Public user list q3iOID0B: Error: 未读到真实题目：可能为私有题单、需要登录、分页未展示或格式变化。请复制题目列表到批量粘贴入口。；可使用下方批量粘贴导入。",
+    "Actual CN SQL problem identified from verified SQL50 metadata",
+    "Actual leetcode.cn problem identified; shared session timer and Good rating through content script",
+    "Real event produces daily/distinct/time metrics and colored calendar",
+    "Offline training and FSRS save succeeded",
+    "Backup has exactly two reviews, shared distinct problem keys, FSRS cards and sessions",
+    "Browser restart preserved training events and analysis",
+    "380px sidepanel opens actual dashboard tab",
+    "Real extension UI at simulated +30 days shows budgeted recovery without rewriting stored due dates",
+    "JSON restore into separate clean browser profile, repeated restore is idempotent"
+  ],
+  "limitations": [
+    "Host permission pregranted in isolated test manifest; native optional permission prompt and physical toolbar click not automated."
+  ]
+}
