@@ -148,6 +148,7 @@ try {
     .getByRole("button", { name: "开始", exact: true })
     .click();
   await lc.waitForTimeout(5500);
+  const panelBounds=await lc.locator("#recallcode-inline").boundingBox();expect(panelBounds.x+panelBounds.width).toBeLessThan(640);
   await lc.screenshot({
     path: resolve(output, "leetcode-training.png"),
     fullPage: false,

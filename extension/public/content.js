@@ -7,7 +7,7 @@
     const host = document.createElement("div");
     host.id = "recallcode-inline";
     host.style.cssText =
-      "position:fixed;bottom:18px;right:18px;z-index:2147483000;max-width:300px";
+      "position:fixed;bottom:18px;left:18px;z-index:2147483000;max-width:300px";
     const root = host.attachShadow({ mode: "open" });
     const style = document.createElement("style");
     style.textContent =

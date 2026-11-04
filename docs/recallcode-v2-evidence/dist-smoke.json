@@ -1,0 +1,10 @@
+{
+  "browser": "156.0.8078.4",
+  "version": "2.0.0",
+  "optionalHosts": [
+    "https://leetcode.cn/*"
+  ],
+  "hasLeetcodePermission": false,
+  "toolbar": true,
+  "sidepanelLoaded": true
+}
