@@ -5,7 +5,7 @@ export function Welcome({ done }: { done: () => void }) {
   const [step, setStep] = useState(1),
     [selected, setSelected] = useState<string[]>(["hot100"]),
     [prior, setPrior] = useState(false),
-    [minutes, setMinutes] = useState(30),
+    [reviewLimit, setReviewLimit] = useState(10),
     [limit, setLimit] = useState(2),
     [error, setError] = useState("");
   const finish = async () => {
@@ -17,7 +17,7 @@ export function Welcome({ done }: { done: () => void }) {
         await markPrior(chosen.flatMap((p) => p.questions.map((q) => q.key)));
       await savePreferences({
         ...defaults,
-        minutesPerDay: minutes,
+        reviewPerDay: reviewLimit,
         newPerDay: limit,
       });
       await db.meta.put({ key: "onboarding", value: true });
@@ -34,7 +34,7 @@ export function Welcome({ done }: { done: () => void }) {
           ? "选择学习题单"
           : step === 2
             ? "以前做过这些题吗？"
-            : "每天投入一点时间"}
+            : "每天练几道题"}
       </h2>
       {step === 1 &&
         presets.map((p) => (
@@ -79,15 +79,14 @@ export function Welcome({ done }: { done: () => void }) {
       {step === 3 && (
         <>
           <label>
-            每日分钟
-            <select
-              value={minutes}
-              onChange={(e) => setMinutes(+e.target.value)}
-            >
-              {[15, 30, 45, 60].map((n) => (
-                <option key={n}>{n}</option>
-              ))}
-            </select>
+            每日复习上限
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={reviewLimit}
+              onChange={(e) => setReviewLimit(+e.target.value)}
+            />
           </label>
           <label>
             每日新题上限

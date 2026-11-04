@@ -1,3 +1,4 @@
+import { duration, RatingBadge } from "./study-ui";
 import { useEffect, useState } from "react";
 import { liveQuery } from "dexie";
 import { db, preferences, type Review, type Problem } from "./storage/db";
@@ -28,7 +29,7 @@ export function Analysis() {
     [timezone, setTimezone] = useState(
       Intl.DateTimeFormat().resolvedOptions().timeZone,
     ),
-    [days, setDays] = useState(84),
+    [offset, setOffset] = useState(0),
     [selected, setSelected] = useState("");
   useEffect(() => {
     const sub = liveQuery(async () => ({
@@ -48,91 +49,147 @@ export function Analysis() {
     const day = localDate(new Date(e.reviewedAt), timezone);
     byDay.set(day, [...(byDay.get(day) ?? []), e]);
   }
-  const now = new Date();
-  const dates = Array.from({ length: days }, (_, i) => {
-    const d = new Date(now);
-    d.setUTCDate(d.getUTCDate() - days + 1 + i);
-    return localDate(d, timezone);
+  const today = localDate(new Date(), timezone);
+  const chosen = selected || (offset === 0 ? today : "");
+  const anchor = new Date(today.slice(0, 7) + "-01T12:00:00Z");
+  anchor.setUTCMonth(anchor.getUTCMonth() + offset);
+  const nextMonth = new Date(anchor);
+  nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
+  nextMonth.setUTCDate(0);
+  const leading = (anchor.getUTCDay() + 6) % 7;
+  const shift = (direction: number) => {
+    setOffset((current) => current + direction);
+    setSelected("");
+  };
+  const cellCount = Math.ceil((leading + nextMonth.getUTCDate()) / 7) * 7;
+  const dates = Array.from({ length: cellCount }, (_, index) => {
+    const day = index - leading + 1;
+    if (day < 1 || day > nextMonth.getUTCDate()) return "";
+    return (
+      anchor.toISOString().slice(0, 7) + "-" + String(day).padStart(2, "0")
+    );
   });
-  const titles = new Map(problems.map((p) => [p.key, p.title]));
+  const problemsByKey = new Map(
+    problems.map((problem) => [problem.key, problem]),
+  );
+  const dayEvents = [...(byDay.get(chosen) ?? [])].sort(
+    (a, b) => Date.parse(b.reviewedAt) - Date.parse(a.reviewedAt),
+  );
+  const timeFormat = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
   return (
     <>
-      <div className="metrics">
-        {[
-          ["今日学习 / 复习", `${stats.newCount} / ${stats.reviewCount} 次`],
-          ["累计学习", `${stats.learned} 题`],
-          ["今日有效时长", `${Math.round(stats.todaySeconds)} 秒`],
-          ["累计有效时长", `${Math.round(stats.totalSeconds)} 秒`],
-        ].map(([title, value]) => (
-          <section key={title}>
-            <p>{title}</p>
-            <strong>{value}</strong>
-          </section>
-        ))}
-      </div>
       <section>
-        <h2>学习日历</h2>
-        <button onClick={() => setDays(days === 84 ? 365 : 84)}>
-          {days === 84 ? "查看最近一年" : "查看最近 12 周"}
-        </button>
-        <p>时区：{timezone}。跨天训练统一归属评价完成日期；取消训练不计入。</p>
-        <div className="calendar">
-          {dates.map((day) => (
-            <button
-              title={`${day} · ${byDay.get(day)?.length ?? 0} 次`}
-              aria-label={`${day} 学习详情`}
-              key={day}
-              className={byDay.has(day) ? "learned" : ""}
-              onClick={() => setSelected(day)}
-            >
-              {day.slice(8)}
-            </button>
+        <div className="study-heading">
+          <h2>概览</h2>
+        </div>
+        <div className="metric-grid">
+          {[
+            [
+              "📙",
+              "今日学习 / 复习",
+              `${stats.newCount} / ${stats.reviewCount} 次`,
+            ],
+            ["📚", "累计学习", `${stats.learned} 题`],
+            ["⏳", "今日有效时长", duration(stats.todaySeconds)],
+            ["⌛", "累计有效时长", duration(stats.totalSeconds)],
+          ].map(([icon, title, value]) => (
+            <div className="metric-tile" key={title}>
+              <span className="metric-icon" aria-hidden="true">
+                {icon}
+              </span>
+              <span>{title}</span>
+              <strong>{value}</strong>
+            </div>
           ))}
         </div>
-        {selected && (
-          <>
-            <h3>{selected}</h3>
-            {!byDay.has(selected) && <p>当天没有学习记录。</p>}
-            {byDay.get(selected)?.map((e) => (
-              <p key={e.id}>
-                {titles.get(e.problemKey) ?? e.problemKey} · {e.kind} ·{" "}
-                {e.rating} · {e.activeSeconds} 秒
-              </p>
-            ))}
-          </>
-        )}
       </section>
       <section>
-        <h2>学习历史</h2>
-        {!events.length && <p>暂无真实训练记录。</p>}
-        {[...events]
-          .sort((a, b) => b.reviewedAt.localeCompare(a.reviewedAt))
-          .slice(0, 100)
-          .map((e) => (
-            <p key={e.id}>
-              {new Date(e.reviewedAt).toLocaleString("zh-CN", {
-                timeZone: timezone,
-              })}{" "}
-              · {titles.get(e.problemKey) ?? e.problemKey} · {e.rating} ·{" "}
-              {e.activeSeconds} 秒
-            </p>
+        <div className="study-heading">
+          <p className="study-kicker">
+            <span aria-hidden="true">📆</span> 学习日历
+          </p>
+          <button
+            onClick={() => {
+              setOffset(0);
+              setSelected("");
+            }}
+          >
+            回到今天
+          </button>
+        </div>
+        <div className="calendar-controls">
+          <button aria-label="上个月" onClick={() => shift(-1)}>
+            ‹
+          </button>
+          <h2 aria-live="polite">
+            {anchor.getUTCFullYear()} 年 {anchor.getUTCMonth() + 1} 月
+          </h2>
+          <button aria-label="下个月" onClick={() => shift(1)}>
+            ›
+          </button>
+        </div>
+        <div className="month-grid">
+          {["一", "二", "三", "四", "五", "六", "日"].map((day) => (
+            <span key={day}>周{day}</span>
           ))}
-        <details>
-          <summary>分类学习进度</summary>
-          {[...new Set(problems.flatMap((p) => p.topics))].map((t) => (
-            <p key={t}>
-              {t}：已学{" "}
-              {
-                problems.filter(
-                  (p) =>
-                    p.topics.includes(t) &&
-                    events.some((e) => e.problemKey === p.key),
-                ).length
-              }{" "}
-              / {problems.filter((p) => p.topics.includes(t)).length}
-            </p>
-          ))}
-        </details>
+          {dates.map((day, index) =>
+            day ? (
+              <button
+                key={day}
+                type="button"
+                aria-label={day}
+                aria-description={byDay.has(day) ? "有学习记录" : undefined}
+                aria-pressed={day === chosen}
+                aria-current={day === today ? "date" : undefined}
+                className={byDay.has(day) ? "learned" : ""}
+                onClick={() => setSelected(day)}
+              >
+                {Number(day.slice(8))}
+                {byDay.has(day) && <i />}
+              </button>
+            ) : (
+              <span key={index} aria-hidden="true" />
+            ),
+          )}
+        </div>
+        <div className="calendar-detail">
+          {!chosen ? (
+            <p>选择日期查看当天的学习记录。</p>
+          ) : (
+            <>
+              <h3>
+                {chosen === today ? "今天 · " : ""}
+                {chosen}
+              </h3>
+              <h4>完成情况 · {byDay.get(chosen)?.length ?? 0} 次</h4>
+              {!byDay.has(chosen) && <p>当天暂无学习记录。</p>}
+              {dayEvents.length > 0 && (
+                <ol className="completion-timeline">
+                  {dayEvents.map((event) => {
+                    const problem = problemsByKey.get(event.problemKey);
+                    return (
+                      <li key={event.id}>
+                        <time dateTime={event.reviewedAt}>
+                          {timeFormat.format(new Date(event.reviewedAt))}
+                        </time>
+                        <strong>
+                          {problem?.frontendId ? problem.frontendId + ". " : ""}
+                          {problem?.title ?? event.problemKey}
+                        </strong>
+                        <RatingBadge rating={event.rating} />
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </>
+          )}
+        </div>
       </section>
     </>
   );

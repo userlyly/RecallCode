@@ -155,6 +155,38 @@ export function planDay(
       b.priority - a.priority ||
       a.problem.key.localeCompare(b.problem.key, undefined, { numeric: true }),
   );
+  if (prefs.reviewPerDay !== undefined) {
+    const reviewLeft = Math.max(
+      0,
+      prefs.reviewPerDay - today.filter((event) => event.kind !== "new").length,
+    );
+    const tasks = [
+      ...candidates
+        .filter((task) => task.taskType !== "new")
+        .slice(0, reviewLeft),
+      ...candidates
+        .filter((task) => task.taskType === "new")
+        .slice(
+          0,
+          Math.max(
+            0,
+            prefs.newPerDay -
+              today.filter((event) => event.kind === "new").length,
+          ),
+        ),
+    ];
+    return {
+      day,
+      tasks,
+      recoveryMode,
+      backlog: due.length,
+      completed: today.length,
+      estimatedMinutes: tasks.reduce(
+        (sum, task) => sum + task.estimatedMinutes,
+        0,
+      ),
+    };
+  }
   const tasks: Task[] = [];
   const add = (t: Task) => {
     if (

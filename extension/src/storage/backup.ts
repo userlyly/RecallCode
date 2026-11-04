@@ -71,7 +71,7 @@ export function validateBackup(raw: unknown): Backup {
   for (const p of b.problems) {
     const u = new URL(p.url);
     if (
-      u.origin !== "https://leetcode.cn" ||
+      !["https://leetcode.cn", "https://leetcode.com"].includes(u.origin) ||
       !/^\/problems\/[a-z0-9-]+\/$/.test(u.pathname) ||
       u.search ||
       u.hash ||

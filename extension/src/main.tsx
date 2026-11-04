@@ -16,7 +16,6 @@ import "./styles.css";
 import { Library } from "./Library";
 import { Today } from "./Today";
 import { Integration } from "./Integration";
-import { AdvancedSettings } from "./AdvancedSettings";
 import { Analysis } from "./Analysis";
 import { Welcome } from "./Welcome";
 import { db } from "./storage/db";
@@ -32,9 +31,11 @@ function App() {
         setWelcome(false);
       });
   }, []);
-  const [tab, setTab] = useState("今日学习"),
+  const [tab, setTab] = useState("今日计划"),
     [prefs, setPrefs] = useState<Preferences>(defaults),
     [message, setMessage] = useState(""),
+    [dailyStatus, setDailyStatus] = useState(""),
+    [savingDaily, setSavingDaily] = useState(false),
     [preview, setPreview] = useState<Backup>();
   useEffect(() => {
     preferences()
@@ -69,160 +70,175 @@ function App() {
   return (
     <main>
       <header>
-        <strong>◈ RecallCode</strong>
-        <button onClick={() => setTab("偏好设置")}>偏好设置</button>
+        <strong className="recall-brand">
+          <span className="recall-brand-icon">
+            <img src="./recallcode-logo.png" alt="" />
+          </span>
+          RecallCode
+        </strong>
       </header>
-      <nav>
-        {["今日学习", "算法题库", "学习分析"].map((t) => (
+      <nav className="panel-nav" aria-label="学习工作台">
+        {["今日计划", "我的题单", "学习数据", "偏好设置"].map((tabName) => (
           <button
-            className={tab === t ? "selected" : ""}
-            key={t}
-            onClick={() => setTab(t)}
+            key={tabName}
+            aria-pressed={tab === tabName}
+            className={tab === tabName ? "selected" : ""}
+            onClick={() => setTab(tabName)}
           >
-            {t}
+            {tabName}
           </button>
         ))}
       </nav>
-      <p className="eyebrow">本机保存 · 无需账号</p>
-      <h1>{tab}</h1>
-      {tab === "今日学习" ? (
-        <Today />
-      ) : tab === "算法题库" ? (
-        <Library onStudy={() => setTab("今日学习")} />
-      ) : tab === "学习分析" ? (
+      {tab !== "我的题单" && <h1>{tab}</h1>}
+      {tab === "今日计划" ? (
+        <Today onLibrary={() => setTab("我的题单")} />
+      ) : tab === "我的题单" ? (
+        <Library />
+      ) : tab === "学习数据" ? (
         <Analysis />
       ) : (
-        <section>
-          <h2>每日偏好</h2>
-          <label>
-            时间预算（分钟）
-            <input
-              type="number"
-              min="1"
-              max="240"
-              value={prefs.minutesPerDay}
-              onChange={(e) =>
-                setPrefs({ ...prefs, minutesPerDay: Number(e.target.value) })
-              }
-            />
-          </label>
-          <label>
-            每日新题上限
-            <input
-              type="number"
-              min="0"
-              max="20"
-              value={prefs.newPerDay}
-              onChange={(e) =>
-                setPrefs({ ...prefs, newPerDay: Number(e.target.value) })
-              }
-            />
-          </label>
-          <button
-            onClick={() =>
-              run(async () => {
-                await savePreferences({
-                  ...(await preferences()),
-                  minutesPerDay: prefs.minutesPerDay,
-                  newPerDay: prefs.newPerDay,
-                });
-                setMessage("设置已保存");
-              })
-            }
-          >
-            保存设置
-          </button>
-          <h2>备份与恢复</h2>
-          <p>
-            恢复默认合并；相同主键保留本机记录，设置采用备份值。卸载或清理扩展数据可能丢失记录，请定期备份。
-          </p>
-          <button
-            onClick={() =>
-              run(async () => {
-                const b = await exportBackup();
-                const url = URL.createObjectURL(
-                  new Blob([JSON.stringify(b, null, 2)], {
-                    type: "application/json",
-                  }),
-                );
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "recallcode-backup.json";
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-              })
-            }
-          >
-            导出 JSON 备份
-          </button>
-          <label>
-            选择备份文件
-            <input
-              type="file"
-              accept=".json"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file)
-                  void run(async () => {
-                    setPreview(undefined);
-                    const raw = JSON.parse(await file.text());
-                    setPreview(
-                      raw?.version === 1
-                        ? await migrateV1(raw)
-                        : validateBackup(raw),
-                    );
-                    if (raw?.version === 1) {
-                      setMessage(migrationWarning);
-                      return;
-                    }
-                    setMessage("校验通过，请确认合并");
-                  });
-              }}
-            />
-          </label>
-          {preview && (
-            <div>
-              <p>
-                {preview.problems.length} 道题 · {preview.studyLists.length}{" "}
-                张题单 · {preview.reviewEvents.length} 条记录
-              </p>
-              <button
-                onClick={() =>
-                  run(async () => {
-                    await restoreBackup(preview);
-                    setPrefs(await preferences());
-                    setPreview(undefined);
-                    setMessage("合并完成");
-                  })
-                }
-              >
-                确认合并到本机
-              </button>
+        <>
+          <section className="daily-settings">
+            <h2>每日偏好</h2>
+            <div className="daily-limits">
+              <label>
+                每日复习上限
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={prefs.reviewPerDay ?? 10}
+                  onChange={(e) =>
+                    setPrefs({ ...prefs, reviewPerDay: Number(e.target.value) })
+                  }
+                />
+              </label>
+              <label>
+                每日新题上限
+                <input
+                  type="number"
+                  min="0"
+                  max="20"
+                  value={prefs.newPerDay}
+                  onChange={(e) =>
+                    setPrefs({ ...prefs, newPerDay: Number(e.target.value) })
+                  }
+                />
+              </label>
             </div>
-          )}
-        </section>
+            <button
+              className="study-primary"
+              disabled={savingDaily}
+              onClick={async () => {
+                setSavingDaily(true);
+                setDailyStatus("");
+                try {
+                  await savePreferences({
+                    ...(await preferences()),
+                    reviewPerDay: prefs.reviewPerDay ?? 10,
+                    newPerDay: prefs.newPerDay,
+                  });
+                  setDailyStatus("每日偏好已保存");
+                } catch (error) {
+                  setDailyStatus(
+                    error instanceof Error ? error.message : String(error),
+                  );
+                } finally {
+                  setSavingDaily(false);
+                }
+              }}
+            >
+              {savingDaily ? "正在保存…" : "保存每日偏好"}
+            </button>
+            {dailyStatus && (
+              <p className="study-feedback" role="status">
+                {dailyStatus}
+              </p>
+            )}
+          </section>
+          <section className="backup-settings">
+            <h2>备份与恢复</h2>
+            <p>
+              恢复默认合并；相同主键保留本机记录，设置采用备份值。卸载或清理扩展数据可能丢失记录，请定期备份。
+            </p>
+            <button
+              onClick={() =>
+                run(async () => {
+                  const b = await exportBackup();
+                  const url = URL.createObjectURL(
+                    new Blob([JSON.stringify(b, null, 2)], {
+                      type: "application/json",
+                    }),
+                  );
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "recallcode-backup.json";
+                  a.click();
+                  setTimeout(() => URL.revokeObjectURL(url), 1000);
+                })
+              }
+            >
+              导出 JSON 备份
+            </button>
+            <label>
+              选择备份文件
+              <input
+                type="file"
+                accept=".json"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file)
+                    void run(async () => {
+                      setPreview(undefined);
+                      const raw = JSON.parse(await file.text());
+                      setPreview(
+                        raw?.version === 1
+                          ? await migrateV1(raw)
+                          : validateBackup(raw),
+                      );
+                      if (raw?.version === 1) {
+                        setMessage(migrationWarning);
+                        return;
+                      }
+                      setMessage("校验通过，请确认合并");
+                    });
+                }}
+              />
+            </label>
+            {preview && (
+              <div>
+                <p>
+                  {preview.problems.length} 道题 · {preview.studyLists.length}{" "}
+                  张题单 · {preview.reviewEvents.length} 条记录
+                </p>
+                <button
+                  onClick={() =>
+                    run(async () => {
+                      await restoreBackup(preview);
+                      setPrefs(await preferences());
+                      setPreview(undefined);
+                      setMessage("合并完成");
+                    })
+                  }
+                >
+                  确认合并到本机
+                </button>
+              </div>
+            )}
+            {message && (
+              <p className="study-feedback" role="status">
+                {message}
+              </p>
+            )}
+          </section>
+        </>
       )}
       {tab === "偏好设置" && (
         <>
           <Integration />
-          <AdvancedSettings />
         </>
       )}
-      {message && <p role="status">{message}</p>}
-      <footer>
-        <p>开发中 · 尚未达到 2.0 完整验收标准</p>
-        {location.pathname.includes("sidepanel") && (
-          <button
-            onClick={() =>
-              chrome.tabs.create({
-                url: chrome.runtime.getURL("dashboard.html"),
-              })
-            }
-          >
-            打开完整管理页 ↗
-          </button>
-        )}
-      </footer>
+      {tab !== "偏好设置" && message && <p role="status">{message}</p>}
     </main>
   );
 }

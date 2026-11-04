@@ -6,7 +6,41 @@ import {
   startTraining,
   tickSession,
   rateTraining,
+  saveTrainingDraft,
 } from "../src/storage/training";
+it("pauses the previous question and preserves its draft across training surfaces", async () => {
+  await db.delete();
+  await db.open();
+  const [first, second] = presets[0].questions;
+  await addList("switch", [first, second]);
+  const now = new Date("2026-11-04T00:00:00Z");
+  const a = await startTraining(first.key, now);
+  await Promise.all([
+    saveTrainingDraft(a.id, { note: "我的解法" }),
+    saveTrainingDraft(a.id, { usedHint: true }),
+  ]);
+  const b = await startTraining(second.key, new Date(+now + 5000));
+  expect(await db.trainingSessions.get(a.id)).toMatchObject({
+    status: "paused",
+    activeSeconds: 5,
+    note: "我的解法",
+    usedHint: true,
+  });
+  await tickSession(a.id, "resume", new Date(+now + 10000));
+  expect(
+    await db.trainingSessions.where("status").equals("running").primaryKeys(),
+  ).toEqual([a.id]);
+  expect((await db.trainingSessions.get(b.id))?.status).toBe("paused");
+  expect(
+    await rateTraining(
+      a.id,
+      "Good",
+      undefined,
+      undefined,
+      new Date(+now + 12000),
+    ),
+  ).toMatchObject({ note: "我的解法", usedHint: true });
+});
 it("auto-pauses after five minutes without user activity despite regular heartbeat", async () => {
   await db.delete();
   await db.open();

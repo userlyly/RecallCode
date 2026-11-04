@@ -192,3 +192,37 @@ it("new-only and prior-only queues respect 15/30/60 minute budgets and new limit
       ).toBe(true);
     }
 });
+
+it("uses separate question quotas and ignores the legacy time budget in the sidebar", () => {
+  const problems = presets[0].questions.slice(0, 8);
+  const lists = [
+    {
+      id: "plan",
+      name: "Plan",
+      problemKeys: problems.map((p) => p.key),
+      sourceType: "preset",
+      enabledForPlanning: true,
+      createdAt: now.toISOString(),
+    },
+  ];
+  const progress: Progress[] = problems
+    .slice(0, 4)
+    .map((p) => ({
+      problemKey: p.key,
+      state: "reviewing",
+      fsrsCard: { dueAt: "2026-11-03T00:00:00Z" },
+    }));
+  const plan = planDay(
+    problems,
+    lists,
+    progress,
+    [],
+    { ...defaults, minutesPerDay: 1, newPerDay: 2, reviewPerDay: 1 },
+    now,
+  );
+  expect(plan.tasks.map((task) => task.taskType)).toEqual([
+    "review",
+    "new",
+    "new",
+  ]);
+});

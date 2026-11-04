@@ -6,7 +6,7 @@ export function allowedSender(
   try {
     const u = new URL(sender.url);
     return (
-      u.origin === "https://leetcode.cn" &&
+      ["https://leetcode.cn", "https://leetcode.com"].includes(u.origin) &&
       /^\/problems\/[a-z0-9-]+\//.test(u.pathname)
     );
   } catch {

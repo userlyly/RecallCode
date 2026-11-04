@@ -40,10 +40,13 @@ export interface Session {
   startedAt: string;
   status: string;
   activeSeconds: number;
+  usedHint?: boolean;
+  note?: string;
 }
 export interface Preferences {
   minutesPerDay: number;
   newPerDay: number;
+  reviewPerDay?: number;
   focus: "balanced" | "review" | "new";
   retention: number;
   timezone: string;
@@ -82,7 +85,11 @@ export class RecallDB extends Dexie {
 export const db = new RecallDB();
 export async function preferences(): Promise<Preferences> {
   const saved = await db.meta.get("preferences");
-  return { ...defaults, ...((saved?.value as Partial<Preferences>) ?? {}) };
+  return {
+    ...defaults,
+    reviewPerDay: 10,
+    ...((saved?.value as Partial<Preferences>) ?? {}),
+  };
 }
 export async function savePreferences(value: Preferences) {
   validatePreferences(value);
@@ -98,6 +105,10 @@ export function validatePreferences(value: Preferences) {
     !Number.isInteger(value.newPerDay) ||
     value.newPerDay < 0 ||
     value.newPerDay > 20 ||
+    (value.reviewPerDay !== undefined &&
+      (!Number.isInteger(value.reviewPerDay) ||
+        value.reviewPerDay < 0 ||
+        value.reviewPerDay > 100)) ||
     !Number.isFinite(value.retention) ||
     value.retention < 0.7 ||
     value.retention > 0.99 ||

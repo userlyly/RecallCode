@@ -8,7 +8,7 @@ export const catalog: Problem[] = [
     presets.flatMap((p) => p.questions).map((p) => [p.key, p]),
   ).values(),
 ];
-export function canonicalUrl(value: string) {
+export function canonicalUrl(value: string, preserveOrigin = false) {
   const u = new URL(value);
   if (
     !["leetcode.cn", "leetcode.com"].includes(u.hostname) ||
@@ -22,7 +22,10 @@ export function canonicalUrl(value: string) {
     /^\/problems\/([a-z0-9-]+)(?:\/(?:description\/?)?)?$/,
   );
   if (!m) throw Error("无效题目路径");
-  return { slug: m[1], url: `https://leetcode.cn/problems/${m[1]}/` };
+  return {
+    slug: m[1],
+    url: `${preserveOrigin ? u.origin : "https://leetcode.cn"}/problems/${m[1]}/`,
+  };
 }
 export function parsePaste(text: string) {
   const tokens =
@@ -41,9 +44,12 @@ export function parsePaste(text: string) {
           continue;
         }
       } else if (token.startsWith("http")) {
-        const u = canonicalUrl(token);
+        const u = canonicalUrl(token, true);
         p = catalog.find((p) => p.titleSlug === u.slug) ?? {
-          key: "leetcode:slug:" + u.slug,
+          key:
+            (new URL(u.url).hostname === "leetcode.com"
+              ? "leetcode:com:slug:"
+              : "leetcode:slug:") + u.slug,
           title: "待补全标题",
           titleSlug: u.slug,
           url: u.url,
@@ -74,7 +80,7 @@ export async function addList(
   name = name.trim();
   if (!name || name.length > 100 || !problems.length)
     throw Error("请输入题单名称及至少一道题目");
-  await db.transaction(
+  return db.transaction(
     "rw",
     db.problems,
     db.studyLists,
@@ -99,10 +105,16 @@ export async function addList(
         if (!(await db.progress.get(p.key)))
           await db.progress.add({ problemKey: p.key, state: "unseen" });
       }
+      const previousCount = list.problemKeys.length;
       list.problemKeys = [
         ...new Set([...list.problemKeys, ...problems.map((p) => p.key)]),
       ];
       await db.studyLists.put(list);
+      return {
+        id: list.id,
+        added: list.problemKeys.length - previousCount,
+        duplicates: problems.length - (list.problemKeys.length - previousCount),
+      };
     },
   );
 }

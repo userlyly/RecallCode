@@ -3,18 +3,19 @@ import { useEffect, useState } from "react";
 import { db, defaults, preferences, savePreferences } from "./storage/db";
 export function AdvancedSettings() {
   const [prefs, setPrefs] = useState(defaults),
-    [status, setStatus] = useState("");
+    [status, setStatus] = useState(""),
+    [cleanupStatus, setCleanupStatus] = useState("");
   useEffect(() => {
-    preferences().then(setPrefs);
+    preferences()
+      .then(setPrefs)
+      .catch((error) => setStatus(String(error)));
   }, []);
   const save = async () => {
     try {
       await savePreferences({
         ...(await preferences()),
-        focus: prefs.focus,
         timezone: prefs.timezone,
         retention: prefs.retention,
-        autoReduceNew: prefs.autoReduceNew,
       });
       setStatus("高级设置已保存");
     } catch (e) {
@@ -23,50 +24,31 @@ export function AdvancedSettings() {
   };
   return (
     <section>
-      <h2>高级设置</h2>
-      <label>
-        <input
-          type="checkbox"
-          checked={prefs.autoReduceNew !== false}
-          onChange={(e) =>
-            setPrefs({ ...prefs, autoReduceNew: e.target.checked })
-          }
-        />
-        积压时自动减少新题
-      </label>
-      <label>
-        学习偏好
-        <select
-          value={prefs.focus}
-          onChange={(e) =>
-            setPrefs({ ...prefs, focus: e.target.value as typeof prefs.focus })
-          }
-        >
-          <option value="balanced">均衡</option>
-          <option value="review">偏复习</option>
-          <option value="new">偏新题</option>
-        </select>
-      </label>
-      <label>
-        时区
-        <input
-          value={prefs.timezone}
-          onChange={(e) => setPrefs({ ...prefs, timezone: e.target.value })}
-        />
-      </label>
-      <label>
-        目标记忆保持率
-        <input
-          type="number"
-          step="0.01"
-          min="0.7"
-          max="0.99"
-          value={prefs.retention}
-          onChange={(e) => setPrefs({ ...prefs, retention: +e.target.value })}
-        />
-      </label>
-      <button onClick={save}>保存高级设置</button>
-      <p>恢复模式默认暂停新题，优先预算内的到期任务。</p>
+      <details>
+        <summary>高级调度设置</summary>
+        <label>
+          时区
+          <input
+            value={prefs.timezone}
+            onChange={(e) => setPrefs({ ...prefs, timezone: e.target.value })}
+          />
+        </label>
+        <label>
+          目标记忆保持率
+          <input
+            type="number"
+            step="0.01"
+            min="0.7"
+            max="0.99"
+            value={prefs.retention}
+            onChange={(e) => setPrefs({ ...prefs, retention: +e.target.value })}
+          />
+        </label>
+        <button onClick={save}>保存高级设置</button>
+        <p className="study-feedback" role="status">
+          {status}
+        </p>
+      </details>
       <details>
         <summary>数据清理</summary>
         <p>
@@ -76,9 +58,9 @@ export function AdvancedSettings() {
           onClick={async () => {
             if (confirm("确认永久删除所有孤立题目及其学习历史？请先备份。")) {
               try {
-                setStatus(`已清理 ${await pruneOrphans()} 道孤立题目`);
+                setCleanupStatus(`已清理 ${await pruneOrphans()} 道孤立题目`);
               } catch (e) {
-                setStatus(String(e));
+                setCleanupStatus(String(e));
               }
             }
           }}
@@ -97,14 +79,14 @@ export function AdvancedSettings() {
               await chrome.storage.local.clear();
               location.reload();
             } catch (e) {
-              setStatus(String(e));
+              setCleanupStatus(String(e));
             }
           }}
         >
           清空本地全部数据
         </button>
+        <p role="status">{cleanupStatus}</p>
       </details>
-      <p role="status">{status}</p>
     </section>
   );
 }

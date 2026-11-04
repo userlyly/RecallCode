@@ -1,6 +1,12 @@
-import { db } from "./storage/db";
+import { localDate } from "./domain/daily-planner";
+import { db, preferences } from "./storage/db";
 import { catalog } from "./domain/catalog";
-import { startTraining, tickSession, rateTraining } from "./storage/training";
+import {
+  startTraining,
+  tickSession,
+  rateTraining,
+  saveTrainingDraft,
+} from "./storage/training";
 import { ratings, type Grade } from "./domain/fsrs";
 import { allowedSender } from "./domain/messages";
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
@@ -14,23 +20,37 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       new URL(sender.url!).pathname.split("/")[2] !== message.slug
     )
       throw Error("题目参数不匹配");
-    const prefs = (await db.meta.get("preferences"))?.value as
-      { enableLeetcodeInline?: boolean } | undefined;
-    if (!prefs?.enableLeetcodeInline) throw Error("请先在设置启用力扣集成");
-    const problem =
-      (await db.problems.where("titleSlug").equals(message.slug).first()) ??
-      catalog.find((p) => p.titleSlug === message.slug);
-    if (!problem) throw Error("当前题目未在本地核验，请先粘贴链接导入");
+    if ((await chrome.storage.local.get("inlineDisabled")).inlineDisabled)
+      throw Error("页面入口已停用");
+    const slug = message.slug as string;
+    const origin = new URL(sender.url!).origin;
+    const problem = (await db.problems
+      .where("titleSlug")
+      .equals(slug)
+      .first()) ??
+      catalog.find((p) => p.titleSlug === slug) ?? {
+        key:
+          (origin === "https://leetcode.com"
+            ? "leetcode:com:slug:"
+            : "leetcode:slug:") + slug,
+        titleSlug: slug,
+        title:
+          typeof message.title === "string" && message.title.trim()
+            ? message.title.trim().slice(0, 160)
+            : slug,
+        url: `${origin}/problems/${slug}/`,
+        difficulty: "Unknown",
+        topics: [],
+        source: "page",
+      };
     if (message.action === "identify")
       return {
         ...problem,
-        sessionId: (
-          await db.trainingSessions
-            .where("problemKey")
-            .equals(problem.key)
-            .filter((s) => s.status === "running" || s.status === "paused")
-            .first()
-        )?.id,
+        session: await db.trainingSessions
+          .where("problemKey")
+          .equals(problem.key)
+          .filter((s) => s.status === "running" || s.status === "paused")
+          .first(),
       };
     if (message.action === "start") {
       await db.transaction("rw", db.problems, async () => {
@@ -43,6 +63,13 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       throw Error("会话参数无效");
     const s = await db.trainingSessions.get(message.sessionId);
     if (!s || s.problemKey !== problem.key) throw Error("会话与题目不符");
+    if (message.action === "draft") {
+      if (typeof message.note === "string" && message.note.length <= 20000)
+        return saveTrainingDraft(s.id, { note: message.note });
+      if (typeof message.usedHint === "boolean")
+        return saveTrainingDraft(s.id, { usedHint: message.usedHint });
+      throw Error("笔记参数无效");
+    }
     if (
       ["heartbeat", "pause", "resume", "activity", "cancel"].includes(
         message.action,
@@ -51,11 +78,15 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       return tickSession(s.id, message.action);
     if (message.action === "rate" && ratings.includes(message.rating)) {
       const event = await rateTraining(s.id, message.rating as Grade);
+      const dueAt = (
+        (await db.progress.get(s.problemKey))?.fsrsCard as
+          { dueAt?: string } | undefined
+      )?.dueAt;
       return {
         ...event,
-        nextDue: (
-          (await db.progress.get(s.problemKey))?.fsrsCard as { dueAt?: string }
-        )?.dueAt,
+        nextDueDate: dueAt
+          ? localDate(new Date(dueAt), (await preferences()).timezone)
+          : undefined,
       };
     }
     throw Error("不支持的消息操作");
