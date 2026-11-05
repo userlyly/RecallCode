@@ -57,8 +57,6 @@ RecallCode 基于 **FSRS 间隔重复算法**，根据你对每道题的掌握�
 
 **不用自己记复习时间，让每一道题都在需要的时候重新出现。**
 
-<img src="docs/images/leetcode-training.png" width="780" alt="四档评分与刷题记录">
-
 ---
 
 ### 📅 打开力扣，今天该刷哪道题？
