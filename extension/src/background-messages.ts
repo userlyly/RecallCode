@@ -1,4 +1,5 @@
-import { localDate } from "./domain/daily-planner";
+import { reviewDate } from "./domain/calendar";
+import type { StoredCard } from "./domain/fsrs";
 import { db, preferences } from "./storage/db";
 import { catalog } from "./domain/catalog";
 import {
@@ -78,14 +79,12 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       return tickSession(s.id, message.action);
     if (message.action === "rate" && ratings.includes(message.rating)) {
       const event = await rateTraining(s.id, message.rating as Grade);
-      const dueAt = (
-        (await db.progress.get(s.problemKey))?.fsrsCard as
-          { dueAt?: string } | undefined
-      )?.dueAt;
+      const dueCard = (await db.progress.get(s.problemKey))?.fsrsCard as
+        StoredCard | undefined;
       return {
         ...event,
-        nextDueDate: dueAt
-          ? localDate(new Date(dueAt), (await preferences()).timezone)
+        nextDueDate: dueCard
+          ? reviewDate(dueCard, (await preferences()).timezone)
           : undefined,
       };
     }

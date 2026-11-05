@@ -205,13 +205,11 @@ it("uses separate question quotas and ignores the legacy time budget in the side
       createdAt: now.toISOString(),
     },
   ];
-  const progress: Progress[] = problems
-    .slice(0, 4)
-    .map((p) => ({
-      problemKey: p.key,
-      state: "reviewing",
-      fsrsCard: { dueAt: "2026-11-03T00:00:00Z" },
-    }));
+  const progress: Progress[] = problems.slice(0, 4).map((p) => ({
+    problemKey: p.key,
+    state: "reviewing",
+    fsrsCard: { dueAt: "2026-11-03T00:00:00Z" },
+  }));
   const plan = planDay(
     problems,
     lists,
@@ -225,4 +223,82 @@ it("uses separate question quotas and ignores the legacy time budget in the side
     "new",
     "new",
   ]);
+});
+
+it("makes a one-day review due at local midnight, including existing cards and quota limits", async () => {
+  const problem = presets[0].questions[0];
+  const lists = [
+    {
+      id: "calendar",
+      name: "Calendar",
+      problemKeys: [problem.key],
+      sourceType: "preset",
+      enabledForPlanning: true,
+      createdAt: "",
+    },
+  ];
+  const reviewedAt = new Date("2026-11-04T13:00:00Z"); // Shanghai 21:00
+  const { card } = await schedule(undefined, "Again", reviewedAt);
+  const prefs = { ...defaults, timezone: "Asia/Shanghai", reviewPerDay: 10 };
+  for (const stored of [card, { dueAt: "2026-11-05T13:00:00Z" }]) {
+    const progress: Progress[] = [
+      { problemKey: problem.key, state: "reviewing", fsrsCard: stored },
+    ];
+    expect(
+      planDay(
+        [problem],
+        lists,
+        progress,
+        [],
+        prefs,
+        new Date("2026-11-04T15:59:59Z"),
+      ).tasks,
+    ).toHaveLength(0);
+    const morning = new Date("2026-11-04T16:00:00Z");
+    expect(
+      planDay([problem], lists, progress, [], prefs, morning).tasks[0].taskType,
+    ).toBe("review");
+    expect(
+      planDay(
+        [problem],
+        lists,
+        progress,
+        [],
+        prefs,
+        new Date("2026-11-04T17:00:00Z"),
+      ).tasks,
+    ).toHaveLength(1);
+    expect(
+      planDay(
+        [problem],
+        lists,
+        progress,
+        [],
+        { ...prefs, reviewPerDay: 0 },
+        morning,
+      ).tasks,
+    ).toHaveLength(0);
+    expect(
+      planDay(
+        [problem],
+        [{ ...lists[0], enabledForPlanning: false }],
+        progress,
+        [],
+        prefs,
+        morning,
+      ).tasks,
+    ).toHaveLength(0);
+    const event: Review = {
+      id: "done",
+      problemKey: problem.key,
+      reviewedAt: morning.toISOString(),
+      kind: "review",
+      rating: "Good",
+      activeSeconds: 10,
+      fsrsVersion: "test",
+    };
+    expect(
+      planDay([problem], lists, progress, [event], prefs, morning).tasks,
+    ).toHaveLength(0);
+  }
 });

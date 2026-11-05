@@ -1,3 +1,6 @@
+import { localDate, reviewDate } from "./domain/calendar";
+import type { StoredCard } from "./domain/fsrs";
+import { preferences } from "./storage/db";
 import { ImportPreview } from "./study-ui";
 import { useEffect, useState } from "react";
 import { PublicImport } from "./PublicImport";
@@ -5,6 +8,19 @@ import { liveQuery } from "dexie";
 import { db, type Problem, type StudyList, type Progress } from "./storage/db";
 import { presets, addList, renameList, parsePaste } from "./domain/catalog";
 export function Library() {
+  const [timezone, setTimezone] = useState(
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  );
+  const [clock, setClock] = useState(Date.now());
+  useEffect(() => {
+    const refresh = () => setClock(Date.now());
+    const timer = setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
   const [lists, setLists] = useState<StudyList[]>([]),
     [problems, setProblems] = useState<Problem[]>([]),
     [progress, setProgress] = useState<Progress[]>([]),
@@ -25,9 +41,11 @@ export function Library() {
           await db.studyLists.toArray(),
           await db.problems.toArray(),
           await db.progress.toArray(),
+          (await preferences()).timezone,
         ] as const,
     ).subscribe({
-      next: ([l, p, s]) => {
+      next: ([l, p, s, timezone]) => {
+        setTimezone(timezone);
         setLists(l);
         setProblems(p);
         setProgress(s);
@@ -54,8 +72,11 @@ export function Library() {
   const dueKeys = new Set(
     progress
       .filter((item) => {
-        const due = (item.fsrsCard as { dueAt?: string } | undefined)?.dueAt;
-        return due && Date.parse(due) <= Date.now();
+        const card = item.fsrsCard as StoredCard | undefined;
+        return (
+          card &&
+          reviewDate(card, timezone) <= localDate(new Date(clock), timezone)
+        );
       })
       .map((item) => item.problemKey),
   );
@@ -349,7 +370,7 @@ export function Library() {
               >
                 {current.enabledForPlanning
                   ? "✓ 已参与今日计划"
-                  : "参与今日计划"}
+                  : "点击参与今日计划"}
               </button>
             </div>
             <div className="detail-progress">

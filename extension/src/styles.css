@@ -804,3 +804,146 @@ select {
 .detail-tabs + .detail-problem {
   margin-top: 10px;
 }
+.today-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.today-title time {
+  color: #3c6151;
+  font-size: 13px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.study-tasks li.task-new-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 7px;
+  padding: 8px 0;
+}
+.task-checkbox {
+  text-align: center;
+  line-height: 1;
+  color: #687f72;
+}
+.task-new-row .task-tags {
+  justify-content: flex-end;
+  margin: 0;
+  gap: 4px;
+}
+.task-new-row .task-tags > span {
+  font-size: 12px;
+  white-space: nowrap;
+}
+@media (max-width: 420px) {
+  .task-new-row .task-tags {
+    max-width: 102px;
+  }
+  .study-tasks .task-new-row .task-copy > strong {
+    font-size: 14px;
+  }
+}
+
+.plan-count {
+  font-size: 15px;
+  color: #3d6a56;
+  font-weight: 650;
+  margin-left: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.plan-progress {
+  display: block;
+  width: 100%;
+  height: 7px;
+  accent-color: #21634d;
+  margin: 15px 0 8px;
+}
+.plan-expand {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  padding: 9px 0;
+  background: transparent;
+  font-weight: 600;
+  text-align: left;
+}
+.plan-expand:hover {
+  background: #f0f7f2;
+  padding-inline: 8px;
+}
+.quick-guide {
+  background: #edf7ef;
+  border-color: #badac5;
+}
+.guide-heading,
+.guide-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.guide-heading {
+  font-size: 13px;
+  font-weight: 650;
+}
+.guide-heading button {
+  border: 0;
+  background: transparent;
+  padding: 4px;
+}
+.quick-guide h2 {
+  margin: 12px 0 8px;
+}
+.quick-guide p {
+  color: #335646;
+  font-size: 14px;
+  margin: 0 0 14px;
+}
+.guide-actions {
+  justify-content: flex-end;
+}
+.support-card {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+.support-star {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 42px;
+  border-radius: 10px;
+  background: #fff1da;
+  color: #c77d0d;
+  font-size: 28px;
+}
+.support-card h2 {
+  font-size: 16px;
+  margin: 0 0 4px;
+}
+.support-card p {
+  font-size: 13px;
+  margin: 0;
+}
+.star-link {
+  grid-column: 1/-1;
+  text-align: center;
+  text-decoration: none;
+  background: #21634d;
+  color: white;
+  border-radius: 10px;
+  padding: 10px;
+  font-weight: 650;
+}
+.star-link:hover {
+  background: #184e3b;
+}
+.guide-replay {
+  width: 100%;
+  margin-bottom: 20px;
+}

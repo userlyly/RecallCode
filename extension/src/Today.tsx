@@ -13,6 +13,7 @@ export function Today({ onLibrary }: { onLibrary?: () => void }) {
   const [events, setEvents] = useState<Review[]>([]);
   const [hasEnabledList, setHasEnabledList] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [expanded, setExpanded] = useState({ new: false, review: false });
   const [clock, setClock] = useState(Date.now());
   useEffect(() => {
     const refresh = () => setClock(Date.now());
@@ -110,36 +111,53 @@ export function Today({ onLibrary }: { onLibrary?: () => void }) {
     if (globalThis.chrome?.tabs) await chrome.tabs.create({ url: p.url });
     else window.open(p.url, "_blank", "noopener");
   };
+  const heading = (
+    <div className="today-title">
+      <h1>今日计划</h1>
+      <time dateTime={plan?.day ?? dayKey}>{plan?.day ?? dayKey}</time>
+    </div>
+  );
   if (!plan)
     return (
-      <section>
-        <p role="status">正在生成今日计划…</p>
-        {message && <p>{message}</p>}
-      </section>
+      <>
+        {heading}
+        <section>
+          <p role="status">正在生成今日计划…</p>
+          {message && <p>{message}</p>}
+        </section>
+      </>
     );
   return (
     <>
+      {heading}
       {plan?.recoveryMode && (
         <section>
           <h2>欢迎回来，今天先完成 {plan.tasks.length} 道</h2>
           <p>恢复学习 · 今天按复习上限安排到期题，积压会逐日消化。</p>
         </section>
       )}
-      <p className="study-kicker">
-        {plan.day} · 已完成 {events.length} 次
-      </p>
       {!hasEnabledList && <button onClick={onLibrary}>前往题库</button>}
       {([true, false] as const).map((isNew) => {
         const group = tasks.filter(
           (task) => (task.taskType === "new") === isNew,
         );
-        const next = plan.tasks.find(
-          (task) => (task.taskType === "new") === isNew,
-        );
+        const pending = new Set(plan.tasks.map((task) => task.problem.key));
+        const next = group.find((task) => pending.has(task.problem.key));
+        const kind = isNew ? "new" : "review";
+        const completedKeys = new Set(events.map((event) => event.problemKey));
+        const completed = group.filter((task) =>
+          completedKeys.has(task.problem.key),
+        ).length;
+        const title = isNew ? "新题" : "复习";
         return (
           <section className="study-card" key={String(isNew)}>
             <div className="study-heading">
-              <h2>{isNew ? "新题" : "复习与初评"}</h2>
+              <h2>
+                {title}{" "}
+                <span className="plan-count">
+                  {completed}/{group.length}
+                </span>
+              </h2>
               <button
                 className="study-primary"
                 disabled={!next}
@@ -148,15 +166,35 @@ export function Today({ onLibrary }: { onLibrary?: () => void }) {
                 {isNew ? "练习新题" : "回顾旧题"}
               </button>
             </div>
-            {group.length ? (
-              <TaskList
-                tasks={group}
-                events={events}
-                start={(problem) => void run(() => start(problem))}
-              />
-            ) : (
-              <p>今天没有{isNew ? "新题" : "待复习或初评的题目"}。</p>
-            )}
+            <progress
+              className="plan-progress"
+              aria-label={title + "进度"}
+              value={completed}
+              max={Math.max(1, group.length)}
+            />
+            <button
+              className="plan-expand"
+              aria-expanded={expanded[kind]}
+              aria-controls={"plan-" + kind}
+              onClick={() =>
+                setExpanded({ ...expanded, [kind]: !expanded[kind] })
+              }
+            >
+              {expanded[kind] ? "收起" : "查看"}
+              {title}明细
+              <span aria-hidden="true">{expanded[kind] ? "⌃" : "⌄"}</span>
+            </button>
+            <div id={"plan-" + kind} hidden={!expanded[kind]}>
+              {group.length ? (
+                <TaskList
+                  tasks={group}
+                  events={events}
+                  start={(problem) => void run(() => start(problem))}
+                />
+              ) : (
+                <p>今天没有{isNew ? "新题" : "待复习的题目"}。</p>
+              )}
+            </div>
           </section>
         );
       })}

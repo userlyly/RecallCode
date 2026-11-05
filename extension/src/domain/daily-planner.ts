@@ -6,14 +6,8 @@ import {
   type Preferences,
 } from "../storage/db";
 import { type StoredCard } from "./fsrs";
-export function localDate(date: Date, timezone: string) {
-  return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
+import { localDate, reviewDate, calendarDaysBetween } from "./calendar";
+export { localDate } from "./calendar";
 export interface Task {
   problem: Problem;
   taskType: "new" | "review" | "assess";
@@ -44,13 +38,15 @@ export function planDay(
     (n, e) => Math.max(n, Date.parse(e.reviewedAt)),
     0,
   );
-  const inactive = last ? Math.floor((now.getTime() - last) / 86400000) : 0;
+  const inactive = last
+    ? calendarDaysBetween(localDate(new Date(last), prefs.timezone), day)
+    : 0;
   const due = problems.filter(
     (p) =>
       enabled.has(p.key) &&
       !!states.get(p.key)?.fsrsCard &&
-      Date.parse((states.get(p.key)!.fsrsCard as StoredCard).dueAt) <=
-        now.getTime(),
+      reviewDate(states.get(p.key)!.fsrsCard as StoredCard, prefs.timezone) <=
+        day,
   );
   const recoveryMode =
     inactive >= thresholds.inactiveDays || due.length >= thresholds.backlog;
@@ -93,7 +89,7 @@ export function planDay(
         : s?.state === "prior_unassessed"
           ? "assess"
           : "new";
-      if (card && Date.parse(card.dueAt) > now.getTime()) return [];
+      if (card && reviewDate(card, prefs.timezone) > day) return [];
       const history = events.filter(
         (e) => e.problemKey === p.key && e.activeSeconds > 0,
       );
@@ -119,7 +115,7 @@ export function planDay(
       const overdue = card
         ? Math.max(
             0,
-            Math.floor((now.getTime() - Date.parse(card.dueAt)) / 86400000),
+            calendarDaysBetween(reviewDate(card, prefs.timezone), day),
           )
         : 0;
       const lastRating = events

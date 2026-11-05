@@ -57,6 +57,34 @@ export function TaskList({
     <ul className="study-tasks">
       {tasks.map((task) => {
         const event = completed.get(task.problem.key);
+        if (task.taskType === "new") {
+          return (
+            <li
+              key={task.problem.key}
+              className={event ? "task-new-row task-done" : "task-new-row"}
+            >
+              <span
+                className="task-checkbox"
+                role="img"
+                aria-label={event ? "已完成" : "未完成"}
+              >
+                {event ? "✅" : "◻"}
+              </span>
+              <div className="task-copy">
+                <strong>
+                  {task.problem.frontendId && `${task.problem.frontendId}. `}
+                  {task.problem.title}
+                </strong>
+              </div>
+              {event && (
+                <div className="task-tags">
+                  <RatingBadge rating={event.rating} />
+                  <span>用时 {duration(event.activeSeconds, true)}</span>
+                </div>
+              )}
+            </li>
+          );
+        }
         return (
           <li key={task.problem.key} className={event ? "task-done" : ""}>
             <span className="task-check" aria-hidden="true">
@@ -68,15 +96,7 @@ export function TaskList({
                 {task.problem.title}
               </strong>
               <div className="task-tags">
-                <span
-                  className={task.taskType === "new" ? "tag-new" : "tag-review"}
-                >
-                  {task.taskType === "new"
-                    ? "新题"
-                    : task.taskType === "assess"
-                      ? "初评"
-                      : "复习"}
-                </span>
+                <span className="tag-review">复习</span>
                 {event ? (
                   <>
                     <span>已完成</span>

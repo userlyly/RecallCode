@@ -17,11 +17,19 @@ import { Library } from "./Library";
 import { Today } from "./Today";
 import { Integration } from "./Integration";
 import { Analysis } from "./Analysis";
+import { QuickGuide } from "./QuickGuide";
 import { Welcome } from "./Welcome";
 import { db } from "./storage/db";
 import { migrateV1, migrationWarning } from "./storage/migrate-v1";
 function App() {
   const [welcome, setWelcome] = useState<boolean>();
+  const [showGuide, setShowGuide] = useState(false);
+  useEffect(() => {
+    db.meta
+      .get("quick-guide-v1")
+      .then((entry) => setShowGuide(!entry?.value))
+      .catch((error) => setMessage(String(error)));
+  }, []);
   useEffect(() => {
     db.meta
       .get("onboarding")
@@ -89,7 +97,16 @@ function App() {
           </button>
         ))}
       </nav>
-      {tab !== "我的题单" && <h1>{tab}</h1>}
+      {showGuide && (
+        <QuickGuide
+          onTab={setTab}
+          onClose={async () => {
+            await db.meta.put({ key: "quick-guide-v1", value: true });
+            setShowGuide(false);
+          }}
+        />
+      )}
+      {tab !== "我的题单" && tab !== "今日计划" && <h1>{tab}</h1>}
       {tab === "今日计划" ? (
         <Today onLibrary={() => setTab("我的题单")} />
       ) : tab === "我的题单" ? (
@@ -236,6 +253,32 @@ function App() {
       {tab === "偏好设置" && (
         <>
           <Integration />
+          <section className="support-card">
+            <span className="support-star" aria-hidden="true">
+              ★
+            </span>
+            <div>
+              <h2>喜欢 RecallCode？</h2>
+              <p>在 GitHub 点个 Star，支持项目成长。</p>
+            </div>
+            <a
+              className="star-link"
+              href="https://github.com/userlyly/RecallCode"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              点个 Star ↗
+            </a>
+          </section>
+          <button
+            className="guide-replay"
+            onClick={() => {
+              setTab("今日计划");
+              setShowGuide(true);
+            }}
+          >
+            重新查看新手引导
+          </button>
         </>
       )}
       {tab !== "偏好设置" && message && <p role="status">{message}</p>}

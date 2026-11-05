@@ -49,6 +49,33 @@ try {
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await page.getByRole("button", { name: "开始今日计划", exact: true }).click();
+  const guide = page.getByRole("region", { name: "快速上手" });
+  await expect(guide).toBeVisible();
+  await page.screenshot({
+    path: resolve(output, "quick-guide.png"),
+    fullPage: true,
+  });
+  for (const tab of ["我的题单", "学习数据", "偏好设置"]) {
+    await guide.getByRole("button", { name: "下一步", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: tab, level: 1, exact: true }),
+    ).toBeVisible();
+  }
+  await guide.getByRole("button", { name: "开始使用", exact: true }).click();
+  await expect(guide).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "点个 Star ↗" })).toHaveAttribute(
+    "href",
+    "https://github.com/userlyly/RecallCode",
+  );
+  await page
+    .getByRole("button", { name: "重新查看新手引导", exact: true })
+    .click();
+  await expect(guide).toBeVisible();
+  await guide.getByRole("button", { name: "跳过引导", exact: true }).click();
+  report.checks.push(
+    "First-use four-view guide, replay/skip, and GitHub Star link verified",
+  );
+
   await page.getByRole("button", { name: "我的题单", exact: true }).click();
   await expect(
     page.getByRole("button", { name: /力扣热题 100.*100 题 · 已学/ }),
@@ -76,6 +103,7 @@ try {
   await expect(planToggle).toHaveAttribute("aria-pressed", "true");
   await planToggle.click();
   await expect(planToggle).toHaveAttribute("aria-pressed", "false");
+  await expect(planToggle).toHaveText("点击参与今日计划");
   await planToggle.click();
   await expect(planToggle).toHaveAttribute("aria-pressed", "true");
   await page.screenshot({
@@ -172,6 +200,28 @@ try {
   );
   await sql.close();
   await page.getByRole("button", { name: "今日计划", exact: true }).click();
+  await expect(page.locator(".today-title time")).toHaveText(
+    /^\d{4}-\d{2}-\d{2}$/,
+  );
+  const expandNew = page.getByRole("button", { name: /查看新题明细/ });
+  await expect(expandNew).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("#plan-new")).toBeHidden();
+  await expect(
+    page.getByRole("progressbar", { name: "新题进度" }),
+  ).toHaveAttribute("value", "0");
+  await page.screenshot({
+    path: resolve(output, "today-collapsed.png"),
+    fullPage: true,
+  });
+  await expandNew.click();
+  await expect(page.locator("#plan-new")).toBeVisible();
+  await page.getByRole("button", { name: /收起新题明细/ }).click();
+  await expect(page.locator("#plan-new")).toBeHidden();
+  await expandNew.click();
+  await expect(page.locator(".task-new-row button")).toHaveCount(0);
+  await expect(
+    page.locator(".task-new-row").first().getByRole("img", { name: "未完成" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "练习新题", exact: true }).waitFor();
   await page.screenshot({ path: resolve(output, "today.png"), fullPage: true });
   const opened = context.waitForEvent("page");
@@ -227,8 +277,19 @@ try {
   report.checks.push(
     "Actual leetcode.cn problem identified; shared session timer and Good rating through content script",
   );
+  await expect(
+    page.getByRole("progressbar", { name: "新题进度" }),
+  ).toHaveAttribute("value", "1");
   await expect(page.locator(".study-tasks .task-done")).toHaveCount(1);
   await expect(page.locator(".study-tasks .task-done")).toContainText("Good");
+  await expect(
+    page
+      .locator(".task-new-row.task-done")
+      .getByRole("img", { name: "已完成" }),
+  ).toBeVisible();
+  await expect(
+    page.locator(".task-new-row.task-done .task-tags"),
+  ).toContainText("用时");
   await page.getByRole("button", { name: "学习数据", exact: true }).click();
   await expect(page.getByText("1 / 0 次", { exact: true })).toBeVisible();
   const timeline = page.locator(".completion-timeline li");
@@ -328,9 +389,7 @@ try {
   const panel = await context.newPage();
   await panel.setViewportSize({ width: 380, height: 820 });
   await panel.goto(`chrome-extension://${id}/sidepanel.html`);
-  await panel
-    .getByRole("heading", { name: "复习与初评", exact: true })
-    .waitFor();
+  await panel.getByRole("heading", { name: /^复习 \d+\/\d+$/ }).waitFor();
   await panel.screenshot({
     path: resolve(output, "sidepanel.png"),
     fullPage: true,
@@ -341,7 +400,10 @@ try {
       panel.getByRole("heading", { name, exact: true, level: 1 }),
     ).toBeVisible();
   }
-  report.checks.push("All four views are available in the 380px side panel");
+  await expect(panel.getByRole("region", { name: "快速上手" })).toHaveCount(0);
+  report.checks.push(
+    "All four views are available in the 380px side panel; guide completion persists",
+  );
   await panel.clock.install({ time: new Date(Date.now() + 30 * 86400000) });
   await panel.reload();
   await expect(
@@ -362,6 +424,7 @@ try {
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await page.getByRole("button", { name: "开始今日计划", exact: true }).click();
+  await page.getByRole("button", { name: "跳过引导", exact: true }).click();
   await page.getByRole("button", { name: "偏好设置", exact: true }).click();
   for (let i = 0; i < 2; i++) {
     await page.getByLabel("选择备份文件").setInputFiles(backupPath);
